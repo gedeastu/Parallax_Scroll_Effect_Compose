@@ -13,19 +13,25 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.times
 import com.example.parallax.ui.theme.ParallaxTheme
 
 class MainActivity : ComponentActivity() {
@@ -39,65 +45,111 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun Main(){
-    var moonScrollSpeed = 0.08f
+    val moonScrollSpeed = 0.08f
     val midBgScrollSpeed = 0.03f
 
-    val imageHeight = (LocalConfiguration.current.screenHeightDp * (2f/3f).dp)
+    val imageHeight = (LocalConfiguration.current.screenWidthDp * (2f / 3f)).dp
     val lazyListState = rememberLazyListState()
 
-    var moonOffset = remember {
+    var moonOffset by remember {
         mutableFloatStateOf(0f)
     }
-    var midBgOffset = remember {
+    var midBgOffset by remember {
         mutableFloatStateOf(0f)
     }
-    LazyColumn(modifier = Modifier.fillMaxWidth(), state = lazyListState, content = {
-        items(10){
-            Text(text = "Sample Item", modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp))
+
+    val nestedScrollConnection = object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            val delta = available.y
+            val layoutInfo = lazyListState.layoutInfo
+            // Check if the first item is visible
+            if(lazyListState.firstVisibleItemIndex == 0) {
+                return Offset.Zero
+            }
+            if(layoutInfo.visibleItemsInfo.lastOrNull()?.index == layoutInfo.totalItemsCount - 1) {
+                return Offset.Zero
+            }
+            moonOffset += delta * moonScrollSpeed
+            midBgOffset += delta * midBgScrollSpeed
+            return Offset.Zero
         }
-        items(count = 0){
-            Box(modifier = Modifier
-                .clipToBounds()
-                .fillMaxWidth()
-                .height(imageHeight)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color(0xFFf36b21),
-                            Color(0xFFf9a521),
+    }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .nestedScroll(nestedScrollConnection),
+        state = lazyListState
+    ) {
+        items(10) {
+            Text(
+                text = "Sample item",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            )
+        }
+        item {
+            Box(
+                modifier = Modifier
+                    .clipToBounds()
+                    .fillMaxWidth()
+                    .height(imageHeight + midBgOffset.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFFf36b21),
+                                Color(0xFFf9a521)
+                            )
                         )
                     )
-                )) {
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_moonbg),
                     contentDescription = "moon",
                     contentScale = ContentScale.FillWidth,
                     alignment = Alignment.BottomCenter,
-                    modifier = Modifier.matchParentSize())
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer {
+                            translationY = moonOffset
+                        }
+                )
                 Image(
                     painter = painterResource(id = R.drawable.ic_midbg),
                     contentDescription = "mid bg",
                     contentScale = ContentScale.FillWidth,
                     alignment = Alignment.BottomCenter,
-                    modifier = Modifier.matchParentSize())
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer {
+                            translationY = midBgOffset
+                        }
+                )
                 Image(
                     painter = painterResource(id = R.drawable.ic_outerbg),
                     contentDescription = "outer bg",
                     contentScale = ContentScale.FillWidth,
                     alignment = Alignment.BottomCenter,
-                    modifier = Modifier.matchParentSize())
+                    modifier = Modifier.matchParentSize()
+                )
             }
         }
-        items(20){
-            Text(text = "Sample Item", modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp))
+        items(20) {
+            Text(
+                text = "Sample item",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            )
         }
-    })
+    }
+
+//    private fun Float.toDp(): Dp {
+//        return (this / Resources.getSystem().displayMetrics.density).dp
+//    }
 }
 
 @Preview(showBackground = true)
